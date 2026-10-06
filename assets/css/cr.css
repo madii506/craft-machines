@@ -61,7 +61,13 @@ img{display:block;max-width:100%}
 .hart{position:relative;display:grid;place-items:center;min-height:420px}
 .hcoin{width:min(400px,80%);height:auto;animation:float 5s ease-in-out infinite;filter:drop-shadow(0 26px 0 rgba(88,196,142,.28))}
 .fresh{position:absolute;inset:0;pointer-events:none}
-.fresh img{position:absolute;width:118px;height:118px;border-radius:14px;border:2.5px solid var(--ink);box-shadow:var(--sh);background:#fff;object-fit:cover;animation:pop .6s var(--ease) both}
+.fresh img{position:absolute;width:118px;height:118px;border-radius:14px;border:2.5px solid var(--ink);box-shadow:var(--sh);background:#fff;object-fit:cover;transform:rotate(var(--r,0deg));animation:popr .6s var(--ease) both}
+.hc{position:absolute;width:112px;padding:8px 8px 9px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;box-shadow:var(--sh);display:grid;justify-items:center;gap:5px;transform:rotate(var(--r,0deg));animation:popr .6s var(--ease) both}
+.hc img,.hc .ph{position:static;width:92px;height:92px;border-radius:11px;border:2px solid var(--ink);box-shadow:none;object-fit:cover;background:var(--tint);animation:none;transform:none}
+.hc .ph{display:grid;place-items:center;font:34px PB;color:var(--mint-d)}
+.hc b{font:13px/1.1 PX;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hc small{font:11px/1 GM;color:var(--mut);min-height:11px}
+.hc i,.tape i,.lc i{font-style:normal}.hc .up,.tape .up{color:var(--mint-d)}.hc .dn,.tape .dn{color:var(--red)}
 .wave{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:90px}
 .wave path{fill:var(--mint)}
 
@@ -72,7 +78,10 @@ img{display:block;max-width:100%}
 .sr2{overflow:hidden;min-width:0;height:100%}
 .tape{display:flex;gap:12px;padding:12px 0 12px 14px;will-change:transform;align-items:center;height:100%}
 .tape a{flex:none;display:flex;align-items:center;gap:9px;padding:5px 12px 5px 5px;border-radius:12px;border:2px solid var(--ink);background:#fff;font:13px/1.2 PS;white-space:nowrap}
-.tape a img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--tint)}
+.tape a img,.tape a .ph{flex:none;width:40px;height:40px;border-radius:50%;border:2px solid var(--ink);object-fit:cover;background:var(--tint)}
+.tape a .ph{display:grid;place-items:center;font:17px PB;color:var(--mint-d)}
+.tape a.nw{background:var(--tint)}
+.strip .sl .dot{margin-right:9px}
 .tape a small{display:block;font:11px GM;color:var(--mut)}
 .tape .mut{font:13px PM;padding:0 4px;white-space:nowrap}
 
@@ -286,8 +295,8 @@ textarea.in{resize:vertical;min-height:92px}
 .pick b{display:block;font:15px PX}.pick small{font:11.5px GM;color:var(--mut)}
 
 /* toast */
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);z-index:90;padding:13px 18px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;box-shadow:var(--sh);font:14px PS;transition:transform .35s var(--ease);max-width:calc(100% - 32px)}
-.toast.show{transform:translate(-50%,0)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,calc(100% + 48px));opacity:0;pointer-events:none;z-index:90;padding:13px 18px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;box-shadow:var(--sh);font:14px PS;transition:transform .35s var(--ease),opacity .25s;max-width:calc(100% - 32px)}
+.toast.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
 
 /* motion */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
@@ -297,6 +306,7 @@ textarea.in{resize:vertical;min-height:92px}
 @keyframes up{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}}
 @keyframes pop{from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:none}}
+@keyframes popr{from{opacity:0;transform:rotate(var(--r,0deg)) scale(.88) translateY(12px)}to{opacity:1;transform:rotate(var(--r,0deg))}}
 @keyframes popb{40%{transform:scale(1.12)}}
 @keyframes float{50%{transform:translateY(-14px) rotate(-2deg)}}
 @keyframes mark{from{transform:scaleX(0)}}
@@ -325,6 +335,9 @@ textarea.in{resize:vertical;min-height:92px}
   .hsub{font-size:16px}
   .hcta .btn{flex:1}
   .fresh img{width:76px;height:76px}
+  .hc{width:80px;padding:5px 5px 6px;gap:3px;border-radius:13px;box-shadow:3px 3px 0 var(--ink)}
+  .hc img,.hc .ph{width:66px;height:66px;border-radius:9px}
+  .hc b{font-size:11px}.hc small{font-size:9.5px;min-height:9.5px}
   .wrap{padding:0 16px}
   .sec{padding:72px 0}
   .strip{grid-template-columns:minmax(0,1fr)}
