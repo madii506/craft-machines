@@ -26,7 +26,7 @@
   // real pump.fun coins: their own picture (through our image proxy), or their first letter when it won't load
   window.__ph = el => { const s = document.createElement('span'); s.className = 'ph'; s.textContent = el.getAttribute('data-ch') || '?'; el.replaceWith(s); };
   const ini = sym => (symOf(sym) || '?').slice(0, 1);
-  const pic = (url, alt, sym) => url ? `<img src="${esc(proxied(url))}" alt="${esc(alt || '')}" data-ch="${esc(ini(sym))}" loading="lazy" decoding="async" onerror="__ph(this)">` : `<span class="ph">${esc(ini(sym))}</span>`;
+  const pic = (url, alt, sym, lazy) => url ? `<img src="${esc(proxied(url))}" alt="${esc(alt || '')}" data-ch="${esc(ini(sym))}"${lazy ? ' loading="lazy"' : ''} decoding="async" onerror="__ph(this)">` : `<span class="ph">${esc(ini(sym))}</span>`;
   const httpsOf = u => (typeof u === 'string' && /^https:\/\//i.test(u.trim()) ? 'https://' + u.trim().slice(8, 408) : null);
   const pct = v => (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-US') : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
   const chg = c => (c.ch == null || !isFinite(c.ch) ? '' : `<i class="${c.ch >= 0 ? 'up' : 'dn'}">${c.ch >= 0 ? '+' : '−'}${pct(Math.abs(c.ch))}%</i>`);
@@ -75,9 +75,11 @@
     tape.innerHTML = S.trend.slice(0, 24).map(tapeItem).join('');
   }
   const tapeBirth = c => { if (tape.dataset.on) tape.insertAdjacentHTML('beforeend', tapeItem(c)); };
+  let tHold = false; const tWrap = tape.parentNode;
+  tWrap.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') tHold = true; }); tWrap.addEventListener('pointerleave', () => { tHold = false; });
   (function roll(now) {
     const dt = tlast ? Math.min(64, now - tlast) : 16; tlast = now;
-    if (!document.hidden && !C.calm && tape.children.length > 2 && tape.scrollWidth > tape.parentNode.clientWidth) {
+    if (!document.hidden && !C.calm && !tHold && tape.children.length > 2 && tape.scrollWidth > tape.parentNode.clientWidth) {
       tx -= dt * 0.04; const f = tape.firstElementChild;
       if (f && tx + f.offsetWidth + 12 < 0) { tx += f.offsetWidth + 12; if (f.classList.contains('nw') && tape.querySelectorAll('a.nw').length > 10) f.remove(); else tape.appendChild(f); }
       tape.style.transform = `translate3d(${tx.toFixed(1)}px,0,0)`;
@@ -95,13 +97,37 @@
   }
   function grid() {
     const ks = sorted(coins()), el = $('#grid');
-    if (!ks.length) { el.innerHTML = `<div class="empty"><img src="/assets/img/block.png" alt=""><div><h3>No machines yet.</h3><p>The first craft gets the whole board to itself. Build it, test it, launch its token.</p><a class="btn ink" href="#make">Make the first craft</a></div></div>`; return; }
+    el.classList.toggle('bpm', !ks.length); $('#sorts').hidden = !ks.length;
+    if (!ks.length) { el.innerHTML = blueprints(); bpWire(el); return; }
     el.innerHTML = ks.map((k, i) => `<article class="mc" data-m="${k.mint}" style="--i:${Math.min(i, 10)}"><div class="im">${img('/i/' + k.mint, k.name)}<span class="tag mint">${esc((MODELS[k.model] || {}).label || k.model)}</span></div>
       <div class="bd"><h3>${esc(k.name)}<span>$${esc(k.symbol)}</span></h3><p>${esc(k.line)}</p>
       <div class="ft"><span class="st ${k.state}"><i></i>${LABEL[k.state] || k.state}</span><span>${fmt(k.runs || 0)} runs</span></div></div></article>`).join('');
     $$('.mc', el).forEach(c => c.addEventListener('click', () => openCraft(c.dataset.m)));
     Live.watch(ks.filter(k => k.state !== 'ascended').map(k => k.mint));
   }
+  const ICON = [
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="7" width="38" height="28" rx="6"/><path d="M14 35l-2 8 10-8"/><path class="l" d="M12 17h24M12 25h15"/></svg>',
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="19"/><circle class="w" cx="24" cy="19.5" r="6.5"/><path class="w" d="M12.5 37.5c2.4-6 6.6-9 11.5-9s9.1 3 11.5 9"/></svg>',
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 6h28a4 4 0 0 1 4 4v18L28 42H10a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z"/><path class="w" d="M42 28H32a4 4 0 0 0-4 4v10z"/><circle class="w" cx="19" cy="19" r="5"/></svg>',
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="4" width="28" height="40" rx="3"/><circle class="w" cx="24" cy="17" r="6.5"/><path class="l" d="M16 31h16M18.5 37h11"/></svg>',
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5l17 9v20l-17 9-17-9V14z"/><path class="t" d="M24 5l17 9-17 9-17-9z"/><path class="l" d="M24 23v20"/></svg>',
+    '<svg viewBox="0 0 48 48" aria-hidden="true"><rect class="w" x="5" y="5" width="38" height="38" rx="5"/><path d="M11 11h9v9h-9zM28 11h9v9h-9zM19.5 19.5h9v9h-9zM11 28h9v9h-9zM28 28h9v9h-9z"/></svg>',
+  ];
+  const recipeHtml = (r, v) => esc(r).replace('{input}', `<mark>${esc(v) || '{input}'}</mark>`);
+  const blueprints = () => `<div class="bphead"><h3>No machines yet.</h3><p>Start from one of these, then make it yours.</p></div>` + PRESETS.map((p, i) => `<article class="bp" style="--i:${i}">
+      <div class="bpt">${ICON[i]}<div><b>${esc(p.n)}</b><span class="tag${p.model === 'ideogram' ? ' mint' : ''}">${MODELS[p.model].label}</span></div></div>
+      <p class="bpr">${recipeHtml(p.r, '')}</p>
+      <input class="bpin" maxlength="40" placeholder="try it: ${esc(p.ask)}" aria-label="Try the ${esc(p.n)}: ${esc(p.ask)}" spellcheck="false">
+      <button type="button" class="btn sm ink" data-bp="${i}">Build this machine</button></article>`).join('');
+  function bpWire(el) {
+    $$('.bp', el).forEach((card, i) => {
+      const inp = $('.bpin', card), out = $('.bpr', card);
+      inp.addEventListener('input', () => { out.innerHTML = recipeHtml(PRESETS[i].r, inp.value.trim()); });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') $('[data-bp]', card).click(); });
+      $('[data-bp]', card).onclick = () => { applyPreset(i); const v = inp.value.trim(); if (v) $('#tin').value = v; go('#make'); const f = $('.form'); f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash'); setTimeout(() => $('#nm').focus({ preventScroll: true }), 700); };
+    });
+  }
+  const go = sel => { const t = $(sel); if (t) t.scrollIntoView({ behavior: C.calm ? 'auto' : 'smooth', block: 'start' }); };
   $$('#sorts button').forEach(b => b.onclick = () => { S.sort = b.dataset.s; $$('#sorts button').forEach(x => x.classList.toggle('on', x === b)); grid(); });
   Live.on('trade', t => { const c = $(`#grid .mc[data-m="${t.mint}"] .st`); if (c && !c.classList.contains('ascended')) { c.className = 'st alive'; c.innerHTML = '<i></i>live'; } });
 
@@ -112,11 +138,13 @@
     $$('#mdl .mo').forEach(b => b.onclick = () => { S.model = b.dataset.k; mdl(); });
   }
   $('#presets').innerHTML = PRESETS.map((p, i) => `<button type="button" data-i="${i}">${p.n}</button>`).join('');
-  $$('#presets button').forEach(b => b.onclick = () => {
-    const p = PRESETS[+b.dataset.i]; $('#recipe').value = p.r; $('#ask').value = p.ask; S.model = p.model; mdl();
+  function applyPreset(i) {
+    const p = PRESETS[i]; $('#recipe').value = p.r; $('#ask').value = p.ask; S.model = p.model; mdl();
     if (!$('#line').value.trim()) $('#line').value = p.n.toLowerCase() + ': ' + p.ask + ' in, a picture out';
+    $$('#presets button').forEach(x => x.classList.toggle('on', +x.dataset.i === i));
     pv();
-  });
+  }
+  $$('#presets button').forEach(b => b.onclick = () => applyPreset(+b.dataset.i));
   function pv() {
     const nm = $('#nm').value.trim() || 'Meme Press', sy = symOf(tk.value) || 'PRESS', line = $('#line').value.trim() || 'memes with your words on them, in one style';
     $('#pvName').textContent = nm; $('#pvTk').textContent = '$' + sy; $('#pvLine').textContent = line;
@@ -240,20 +268,59 @@
   // ---------- 03 live on pump.fun ----------
   const LG = $('#lgrid');
   function liveCard(c) {
-    const meta = c.kind === 'new' ? `<span>new · ${C.ago(c.at)}</span><span>${mcapOf(c)}</span>`
+    const meta = c.kind === 'new' ? `<span class="age">new · ${C.ago(c.at)}</span><span>${mcapOf(c)}</span>`
       : `<span>${mcapOf(c) || '—'}</span><span>${c.ch == null ? '' : chg(c) + ' 1h'}</span>`;
-    return `<div class="lc" data-m="${esc(c.mint)}"><div class="im">${pic(c.icon, c.name, c.symbol)}</div><div class="bd"><b>${esc(c.name || c.symbol)}</b><div class="meta"><span>$${esc(symOf(c.symbol) || '?')}</span></div><div class="meta">${meta}</div>
+    return `<div class="lc" data-m="${esc(c.mint)}"><div class="im">${pic(c.icon, c.name, c.symbol, true)}</div><div class="bd"><b>${esc(c.name || c.symbol)}</b><div class="meta"><span>$${esc(symOf(c.symbol) || '?')}</span></div><div class="meta">${meta}</div>
       <div class="act"><button type="button" data-run="${esc(c.mint)}">Run a machine</button><a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener" aria-label="Open on pump.fun">↗</a></div></div></div>`;
   }
   function liveGrid() {
     const list = S.lt === 'new' ? S.births : S.trend;
+    const prev = LG.dataset.tab; LG.dataset.tab = '';
+    if (S.q) {
+      const f = S.found || [];
+      LG.innerHTML = f.length ? f.slice(0, 18).map(liveCard).join('') : `<div class="lnote">${S.qDone ? 'No pump.fun coin matches that.' : 'Looking on pump.fun…'}</div>`;
+      return;
+    }
     if (S.lt === 'trending' && S.trend === null) { LG.innerHTML = '<div class="lnote">Reading what’s trending on pump.fun…</div>'; return; }
     if (S.lt === 'trending' && S.trend === false) { LG.innerHTML = '<div class="lnote">The trending list didn’t answer. <button class="btn sm" type="button" id="tRetry">Try again</button></div>'; $('#tRetry').onclick = () => { S.trendAt = 0; trending(); }; return; }
     if (!list.length) { LG.innerHTML = `<div class="lnote">${Live.S.up ? 'Waiting for the next coin to be born on pump.fun…' : 'Connecting to pump.fun’s live feed…'}</div>`; return; }
-    LG.innerHTML = list.slice(0, 18).map(liveCard).join('');
-    $$('[data-run]', LG).forEach(b => b.onclick = () => { const c = list.find(x => x.mint === b.dataset.run); if (c) pickFor(c); });
+    const want = list.slice(0, 18), cards = $$('.lc', LG);
+    LG.dataset.tab = S.lt;
+    if (S.lt === 'new' && prev === 'new' && cards.length) {
+      const have = new Set(cards.map(e => e.dataset.m)), keep = new Set(want.map(c => c.mint));
+      want.filter(c => !have.has(c.mint)).reverse().forEach(c => LG.insertAdjacentHTML('afterbegin', liveCard(c)));
+      $$('.lc', LG).forEach(e => { if (!keep.has(e.dataset.m)) e.remove(); else { const c = want.find(x => x.mint === e.dataset.m), a = e.querySelector('.age'); if (a) a.textContent = 'new · ' + C.ago(c.at); } });
+      return;
+    }
+    LG.innerHTML = want.map(liveCard).join('');
   }
-  $$('#ltabs button').forEach(b => b.onclick = () => { S.lt = b.dataset.l; $$('#ltabs button').forEach(x => x.classList.toggle('on', x === b)); if (S.lt === 'trending') trending(); liveGrid(); });
+  LG.addEventListener('click', e => { const b = e.target.closest('[data-run]'); if (!b) return; const c = ((S.q ? S.found : S.lt === 'new' ? S.births : S.trend) || []).find(x => x.mint === b.dataset.run); if (c) pickFor(c); });
+  const LQ = $('#lq'), LQX = $('#lqX'); let qT = 0, qSeq = 0;
+  const jupCoin = t => ({ kind: 'trending', mint: t.id, name: String(t.name || '').slice(0, 40), symbol: String(t.symbol || '').slice(0, 14), icon: httpsOf(t.icon), mcap: Number(t.mcap) || Number(t.fdv) || null, ch: t.stats1h && isFinite(+t.stats1h.priceChange) ? +t.stats1h.priceChange : null });
+  const isPump = t => t && t.id && (t.launchpad === 'pump.fun' || /pump$/.test(t.id)) && !BAD.test(String(t.name || '') + ' ' + String(t.symbol || ''));
+  function findLocal(q) {
+    const k = q.toLowerCase().replace(/^\$/, ''), seen = new Set();
+    return [...(S.trend || []), ...S.births].filter(c => { if (seen.has(c.mint)) return false; seen.add(c.mint); return c.mint === q || String(c.name || '').toLowerCase().includes(k) || String(c.symbol || '').toLowerCase().includes(k); });
+  }
+  async function findRemote(q) {
+    const my = ++qSeq;
+    try {
+      const r = await fetch('https://lite-api.jup.ag/tokens/v2/search?query=' + encodeURIComponent(q.replace(/^\$/, ''))).then(x => x.json());
+      if (my !== qSeq) return;
+      const have = new Set((S.found || []).map(c => c.mint));
+      S.found = [...(S.found || []), ...(Array.isArray(r) ? r : []).filter(isPump).map(jupCoin).filter(c => !have.has(c.mint))];
+    } catch {}
+    if (my === qSeq) { S.qDone = true; liveGrid(); }
+  }
+  LQ.addEventListener('input', () => {
+    S.q = LQ.value.trim(); LQX.hidden = !S.q; clearTimeout(qT); qSeq++;
+    S.found = S.q ? findLocal(S.q) : null; S.qDone = false;
+    $$('#ltabs button').forEach(x => x.classList.toggle('on', !S.q && x.dataset.l === S.lt));
+    liveGrid();
+    if (S.q.length >= 2) qT = setTimeout(() => findRemote(S.q), 380); else if (S.q) { S.qDone = true; liveGrid(); }
+  });
+  LQX.onclick = () => { LQ.value = ''; LQ.dispatchEvent(new Event('input')); LQ.focus(); };
+  $$('#ltabs button').forEach(b => b.onclick = () => { if (S.q) { LQ.value = ''; S.q = ''; S.found = null; LQX.hidden = true; } S.lt = b.dataset.l; $$('#ltabs button').forEach(x => x.classList.toggle('on', x === b)); if (S.lt === 'trending') trending(); liveGrid(); });
   Live.on('status', up => { $('#tDot').classList.toggle('on', up); if (S.lt === 'new' && !S.births.length) liveGrid(); });
   async function logo(c, uri, n) {
     await new Promise(z => setTimeout(z, n ? 6000 : 1500));
@@ -270,11 +337,11 @@
     S.births.unshift(c); S.births = S.births.slice(0, 30);
     if (b.uri && /^https:\/\//i.test(b.uri)) logo(c, b.uri, 0);
     tapeBirth(c);
-    if (S.lt === 'new') { if (!throttle) { throttle = setTimeout(() => { throttle = 0; liveGrid(); }, 900); } }
+    if (S.lt === 'new' && !S.q) { if (!throttle) { throttle = setTimeout(() => { throttle = 0; if (!S.q) liveGrid(); }, 900); } }
   });
   let throttle = 0;
   async function trending() {
-    if (S.trend && Date.now() - S.trendAt < 60000) return liveGrid();
+    if (S.trend && Date.now() - S.trendAt < 60000) return S.q ? null : liveGrid();
     try {
       const r = await fetch('https://lite-api.jup.ag/tokens/v2/toptrending/1h?limit=80').then(x => x.json());
       const arr = Array.isArray(r) ? r : (r && (r.tokens || r.data)) || [];
@@ -283,7 +350,7 @@
         mcap: Number(t.mcap) || Number(t.fdv) || null, ch: t.stats1h && isFinite(+t.stats1h.priceChange) ? +t.stats1h.priceChange : null }));
       S.trendAt = Date.now();
     } catch { if (!S.trend) S.trend = false; }
-    if (S.lt === 'trending') liveGrid();
+    if (S.lt === 'trending' && !S.q) liveGrid();
     strip(); if (!$('#fresh .hc') && !$('#fresh img')) fresh();
   }
   setInterval(() => { if (!document.hidden) trending(); }, 61000);
@@ -297,11 +364,46 @@
   }
 
   // ---------- 04 the guild ----------
+  const RANKS = [['apprentice', 1, 0], ['journeyman', 1.5, 3], ['artisan', 2, 10], ['master', 3, 30]];
   function ladder() {
-    const R = [['apprentice', '1x', 'from day 0'], ['journeyman', '1.5x', 'from day 3'], ['artisan', '2x', 'from day 10'], ['master', '3x', 'from day 30']];
     const el = $('#ladder'); el.classList.add('stg');
-    el.innerHTML = R.map(r => `<div class="rung"><b>${r[0]}</b><div class="x">${r[1]}</div><small>${r[2]}</small></div>`).join('');
-    C.reveal($('#guild'));
+    el.innerHTML = RANKS.map((r, i) => `<button type="button" class="rung" data-d="${r[2]}" style="--k:${i}"><b>${r[0]}</b><div class="x">${r[1]}x</div><small>from day ${r[2]}</small></button>`).join('');
+    $$('.rung', el).forEach(b => b.onclick = () => { $('#dRange').value = b.dataset.d; days(); });
+    days(); C.reveal($('#guild'));
+  }
+  function days() {
+    const r = $('#dRange'), d = +r.value, k = RANKS.reduce((a, x, i) => (d >= x[2] ? i : a), 0), nx = RANKS[k + 1];
+    r.style.setProperty('--p', (d / +r.max * 100).toFixed(1) + '%');
+    $('#dOut').innerHTML = `<b>day ${d}</b> · ${RANKS[k][0]} · ${RANKS[k][1]}x tickets${nx ? ` <small>${nx[0]} in ${nx[2] - d} day${nx[2] - d === 1 ? '' : 's'}</small>` : ' <small>top rank</small>'}`;
+    $$('#ladder .rung').forEach((e, i) => { e.classList.toggle('on', i === k); e.classList.toggle('past', i < k); });
+  }
+  $('#dRange').addEventListener('input', days);
+
+  // ---------- 05 how it works: steps that take you there, a split you can open ----------
+  $$('.steps3 li[data-go]').forEach(li => { li.tabIndex = 0; li.setAttribute('role', 'link'); li.onclick = () => go(li.dataset.go); li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(li.dataset.go); } }; });
+  const NOTES = ['The wallet that launched the craft. pump.fun’s own fee sharing pays it on every trade, for as long as the token trades.',
+    'Eight $CRAFT guild members, drawn the moment the craft is recorded. Until anyone has joined the guild, this share stays with the maker.',
+    'The house. It pays Krea and Ideogram for every run anyone makes, on every machine.'];
+  $$('#splitx button').forEach(b => { const pick = () => { $$('#splitx button').forEach(x => x.classList.toggle('on', x === b)); $('#splitN').textContent = NOTES[+b.dataset.k]; }; b.addEventListener('mouseenter', pick); b.addEventListener('focus', pick); b.addEventListener('click', pick); });
+  if ('IntersectionObserver' in window && !C.calm) {
+    const nums = $$('#splitx b[data-n]'); nums.forEach(b => { b.textContent = '0%'; });
+    const io2 = new IntersectionObserver(es => { if (!es.some(e => e.isIntersecting)) return; io2.disconnect(); const t0 = performance.now();
+      (function tick(t) { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); nums.forEach(b => { b.textContent = Math.round(+b.dataset.n * e) + '%'; }); if (k < 1) requestAnimationFrame(tick); })(t0);
+      setTimeout(() => nums.forEach(b => { b.textContent = b.dataset.n + '%'; }), 1400);
+    }, { threshold: .15 });
+    io2.observe($('#splitx'));
+  }
+
+  // ---------- cards lean toward the pointer ----------
+  if (!C.calm && matchMedia('(hover: hover)').matches) {
+    let tl = null;
+    document.addEventListener('pointermove', e => {
+      const el = e.target.closest ? e.target.closest('.mc, .lc, .bp') : null;
+      if (tl && tl !== el) { tl.style.removeProperty('--rx'); tl.style.removeProperty('--ry'); }
+      tl = el; if (!el) return;
+      const q = el.getBoundingClientRect(), x = (e.clientX - q.left) / q.width - 0.5, y = (e.clientY - q.top) / q.height - 0.5;
+      el.style.setProperty('--rx', (-y * 6).toFixed(2) + 'deg'); el.style.setProperty('--ry', (x * 8).toFixed(2) + 'deg');
+    }, { passive: true });
   }
   const TOK = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'], CB = 'ComputeBudget111111111111111111111111111111';
   async function me() {
