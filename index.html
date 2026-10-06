@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Craft</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Make a craft. Launch a token. Every craft is an AI machine with its own token on pump.fun, powered by Krea and Ideogram.">
+<meta name="theme-color" content="#f7f6f4">
+<meta property="og:title" content="Craft">
+<meta property="og:description" content="Make a craft. Launch a token. AI machines powered by Krea + Ideogram.">
+<meta property="og:image" content="https://craft-machines.vercel.app/assets/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico?v=1" sizes="any">
+<link rel="icon" type="image/png" sizes="64x64" href="/assets/img/fav-64.png?v=1">
+<link rel="apple-touch-icon" href="/assets/img/fav-180.png?v=1">
+<link rel="preload" href="/assets/fonts/Poppins-Black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/Poppins-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/cr.css?v=1">
+</head>
+<body>
+<header class="bar" id="top">
+  <a class="brand" href="#" aria-label="Craft, to the top"><img src="/assets/img/mark.png" alt="" width="34" height="34"><span>Craft</span></a>
+  <nav class="links" aria-label="Sections"><a href="#machines">Machines</a><a href="#make">Make</a><a href="#live">Live</a><a href="#guild">Guild</a><a href="#how">How it works</a></nav>
+  <div class="right"><button class="wallet" id="walletBtn" type="button"><i></i><span>connect</span></button></div>
+</header>
+
+<main>
+  <section class="hero" id="hero">
+    <div class="hwrap">
+      <div class="htext">
+        <h1>Make a craft.<br><span>Launch a token.</span></h1>
+        <p class="hsub">Every craft is an AI machine with its own token on pump.fun. Anyone can run it. AI machines powered by Krea + Ideogram.</p>
+        <div class="hcta"><a class="btn ink big" href="#make">Make a craft</a><a class="btn big" href="#machines">Run a machine</a></div>
+        <div class="models" id="models"></div>
+        <div class="ca" id="caBox" hidden></div>
+      </div>
+      <div class="hart" aria-hidden="true">
+        <img class="hcoin" src="/assets/img/coin.png" alt="" width="460" height="460">
+        <div class="fresh" id="fresh"></div>
+      </div>
+    </div>
+    <svg class="wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 46 C 240 18 420 70 720 44 C 1000 20 1180 62 1440 38 V120 H0 Z"/></svg>
+  </section>
+
+  <section class="sec mint" id="strip-sec" aria-label="Fresh off the machines">
+    <div class="strip"><div class="sl"><b>fresh off the machines</b></div><div class="sr2"><div class="tape" id="tape"></div></div></div>
+  </section>
+
+  <section class="sec" id="machines">
+    <div class="wrap">
+      <div class="sh row2"><div><p class="eye">01 · the machines</p><h2>Every craft, <em>ready to run</em>.</h2></div><div class="tabs" id="sorts"><button type="button" data-s="hot" class="on">Hot</button><button type="button" data-s="new">New</button><button type="button" data-s="runs">Most run</button></div></div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+
+  <section class="sec tint" id="make">
+    <div class="wrap">
+      <div class="sh"><p class="eye">02 · make a craft</p><h2>Build the machine. <em>Launch its token.</em></h2></div>
+      <div class="ap">
+        <div class="form">
+          <div class="two"><label class="fld"><span>name</span><input class="in" id="nm" maxlength="32" placeholder="Meme Press" spellcheck="false" autocomplete="off"></label>
+            <label class="fld"><span>ticker</span><div class="tkw"><b>$</b><input id="tk" maxlength="10" placeholder="PRESS" spellcheck="false" autocomplete="off" autocapitalize="characters"></div></label></div>
+          <label class="fld"><span>what it makes</span><input class="in" id="line" maxlength="140" placeholder="memes with your words on them, in one style" spellcheck="false"></label>
+          <div class="fld"><span>its model</span><div class="mdl" id="mdl"></div></div>
+          <div class="fld"><span>its recipe <em>the prompt it always uses; {input} is where people’s words go</em></span><div class="pre" id="presets"></div><textarea class="in" id="recipe" maxlength="600" rows="4" placeholder="A bold meme poster with the words &quot;{input}&quot; in big white letters, flat colours, thick black outlines"></textarea></div>
+          <label class="fld"><span>what people type <em>shown in its box</em></span><input class="in" id="ask" maxlength="40" placeholder="your words" spellcheck="false"></label>
+          <div class="fld"><span>test it</span><div class="testrow"><input class="in" id="tin" maxlength="120" placeholder="try something" spellcheck="false"><button class="btn sm ink" id="testBtn" type="button">Test run</button></div><p class="status" id="tSt" role="status"></p></div>
+          <div class="fld"><span>first buy <em>optional</em></span><div class="chips" id="buyBox"></div></div>
+          <div class="fld"><span>fees, locked on pump.fun</span><div class="split" id="split"></div></div>
+          <label class="fld"><span>its X <em>optional</em></span><input class="in" id="xh" maxlength="16" placeholder="@" spellcheck="false"></label>
+          <button class="btn ink big wide" id="goBtn" type="button">Connect wallet to launch</button>
+          <div class="lsteps" id="goProg" hidden></div>
+          <p class="status" id="goStatus" role="status"></p>
+          <div id="goRes" hidden></div>
+        </div>
+        <aside class="pv">
+          <div class="pvc">
+            <div class="pvimg" id="pvImg"><div class="pvempty"><img src="/assets/img/coin.png" alt="" width="140" height="140"><p>Test runs show up here. Pick one to be your token’s picture.</p></div></div>
+            <div class="pvt"><b id="pvName">Meme Press</b><span id="pvTk">$PRESS</span></div>
+            <p class="pvbio" id="pvLine">memes with your words on them, in one style</p>
+            <div class="thumbs" id="thumbs"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="live">
+    <div class="wrap">
+      <div class="sh row2"><div><p class="eye">03 · live on pump.fun</p><h2>Real coins, <em>right now</em>.</h2><p class="lede">Every coin here is live on pump.fun, with its own picture. Run any machine for one of them.</p></div><div class="tabs" id="ltabs"><button type="button" data-l="new" class="on">New <i class="dot" id="tDot"></i></button><button type="button" data-l="trending">Trending</button></div></div>
+      <div class="lgrid" id="lgrid"></div>
+    </div>
+  </section>
+
+  <section class="sec tint" id="guild">
+    <div class="wrap">
+      <div class="sh"><p class="eye">04 · the guild</p><h2>Hold $CRAFT. <em>Join every new machine.</em></h2><p class="lede">Burn $CRAFT to join the guild. Every new craft seats 8 guild members, and the longer you’ve been in, the more tickets you get. Guild members share 15% of that craft’s creator fees forever, paid by pump.fun’s own fee sharing.</p></div>
+      <div class="ladder" id="ladder"></div>
+      <div class="vgrid"><div class="card" id="me"></div><div class="card" id="vtop"></div></div>
+    </div>
+  </section>
+
+  <section class="sec" id="how">
+    <div class="wrap narrow">
+      <div class="sh"><p class="eye">05 · how it works</p><h2>Plain words, <em>no fine print</em>.</h2></div>
+      <ol class="steps3">
+        <li><b>1</b><h3>Build a machine</h3><p>Pick a model (Krea 2 or Ideogram 3.0), write its recipe and test it until you like what it makes.</p></li>
+        <li><b>2</b><h3>Launch its token</h3><p>Your best test run becomes the token’s picture. One signature creates it on pump.fun and locks its split.</p></li>
+        <li><b>3</b><h3>Anyone runs it</h3><p>People type into your machine and get a picture to save or post. Every run is stamped with the craft and its token.</p></li>
+      </ol>
+      <div class="splitx"><div><b>70%</b><span>the maker</span></div><div><b>15%</b><span>8 guild members</span></div><div><b>15%</b><span>the house, which pays for every run</span></div></div>
+      <div class="faq">
+        <details><summary>Which models do the machines use?</summary><p>Krea 2 (great for photos, scenes and characters) and Ideogram 3.0 (great for text, logos, memes and posters). Each craft picks one when it’s made. Every picture is made fresh by that model at the moment you press run.</p></details>
+        <details><summary>How many runs does a machine get?</summary><p>Every live craft gets 20 free runs a day, 60 while its token is trading and 150 once it graduates. The house also keeps one daily cap across all machines. Counts reset at 00:00 UTC, and a run that fails isn’t counted.</p></details>
+        <details><summary>Who holds the money?</summary><p>Nobody here. pump.fun’s own fee sharing splits every creator fee. Before you sign, the page reads the transactions and stops if the split isn’t the one shown. Anyone can push waiting fees out to everyone with one click.</p></details>
+        <details><summary>How is the guild drawn?</summary><p>The moment a craft is recorded, up to 8 $CRAFT guild members are drawn, seeded by Solana’s latest finalized blockhash. Tickets: apprentice 1x, journeyman 1.5x (day 3), artisan 2x (day 10), master 3x (day 30). Until anyone has joined, the guild’s 15% stays with the maker.</p></details>
+        <details><summary>What can’t the machines make?</summary><p>Nothing sexual, nothing with children, no gore or hate. The models screen every request too. Real people’s faces and other brands’ logos are a bad idea: don’t make a machine for them.</p></details>
+        <details><summary>Where do the coins in Live come from?</summary><p>Straight from pump.fun: new coins stream in the moment they’re created, and Trending reads Jupiter’s list of the most traded pump.fun tokens in the last hour. Their pictures are their own.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+<span id="live-sr" class="sr" aria-live="polite"></span>
+<div class="sheet-w" id="sheet" hidden><div class="boxw" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="bar2"><span id="sheetTitle"></span><button class="x" id="sheetX" type="button" aria-label="Close">×</button></div><div class="inner" id="sheetBody"></div></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script src="/assets/js/core.js?v=1"></script>
+<script src="/assets/js/live.js?v=1"></script>
+<script src="/assets/js/cross.js?v=1"></script>
+<script src="/assets/js/app.js?v=1"></script>
+</body>
+</html>
