@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="/assets/img/fav-180.png?v=2">
 <link rel="preload" href="/assets/fonts/Poppins-Black.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/Poppins-Medium.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/css/cr.css?v=2">
+<link rel="stylesheet" href="/assets/css/cr.css?v=3">
 </head>
 <body>
 <header class="bar" id="top">
@@ -44,7 +44,7 @@
   </section>
 
   <section class="sec mint" id="strip-sec" aria-label="Live on pump.fun">
-    <div class="strip"><div class="sl"><i class="dot on"></i><b>live on pump.fun</b></div><div class="sr2"><div class="tape" id="tape"></div></div></div>
+    <div class="strip"><div class="sr2"><div class="tape" id="tape"></div></div></div>
   </section>
 
   <section class="sec" id="machines">
@@ -89,6 +89,7 @@
   <section class="sec" id="live">
     <div class="wrap">
       <div class="sh row2"><div><p class="eye">03 · live on pump.fun</p><h2>Real coins, <em>right now</em>.</h2><p class="lede">Every coin here is live on pump.fun, with its own picture. Run any machine for one of them. <span id="nLine"></span></p></div><div class="tabs" id="ltabs"><button type="button" data-l="trending" class="on">Trending</button><button type="button" data-l="new">New <i class="dot" id="tDot"></i></button></div></div>
+      <label class="lfind"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input id="lq" type="search" maxlength="64" placeholder="Find any pump.fun coin: name, ticker or address" spellcheck="false" autocomplete="off" aria-label="Find a pump.fun coin"><button type="button" id="lqX" aria-label="Clear" hidden>×</button></label>
       <div class="lgrid" id="lgrid"></div>
     </div>
   </section>
@@ -96,6 +97,7 @@
   <section class="sec tint" id="guild">
     <div class="wrap">
       <div class="sh"><p class="eye">04 · the guild</p><h2>Hold $CRAFT. <em>Join every new machine.</em></h2><p class="lede">Burn $CRAFT to join the guild. Every new craft seats 8 guild members, and the longer you’ve been in, the more tickets you get. Guild members share 15% of that craft’s creator fees forever, paid by pump.fun’s own fee sharing.</p></div>
+      <div class="days"><div class="dtop"><span>days in the guild</span><output id="dOut" for="dRange"></output></div><input type="range" id="dRange" min="0" max="40" step="1" value="0" aria-label="Days in the guild"></div>
       <div class="ladder" id="ladder"></div>
       <div class="vgrid"><div class="card" id="me"></div><div class="card" id="vtop"></div></div>
     </div>
@@ -105,11 +107,12 @@
     <div class="wrap narrow">
       <div class="sh"><p class="eye">05 · how it works</p><h2>Plain words, <em>no fine print</em>.</h2></div>
       <ol class="steps3">
-        <li><b>1</b><h3>Build a machine</h3><p>Pick a model (Krea 2 or Ideogram 3.0), write its recipe and test it until you like what it makes.</p></li>
-        <li><b>2</b><h3>Launch its token</h3><p>Your best test run becomes the token’s picture. One signature creates it on pump.fun and locks its split.</p></li>
-        <li><b>3</b><h3>Anyone runs it</h3><p>People type into your machine and get a picture to save or post. Every run is stamped with the craft and its token.</p></li>
+        <li data-go="#make"><b>1</b><h3>Build a machine</h3><p>Pick a model (Krea 2 or Ideogram 3.0), write its recipe and test it until you like what it makes.</p></li>
+        <li data-go="#make"><b>2</b><h3>Launch its token</h3><p>Your best test run becomes the token’s picture. One signature creates it on pump.fun and locks its split.</p></li>
+        <li data-go="#live"><b>3</b><h3>Anyone runs it</h3><p>People type into your machine and get a picture to save or post. Every run is stamped with the craft and its token.</p></li>
       </ol>
-      <div class="splitx"><div><b>70%</b><span>the maker</span></div><div><b>15%</b><span>8 guild members</span></div><div><b>15%</b><span>the house, which pays for every run</span></div></div>
+      <div class="splitx" id="splitx"><button type="button" class="on" data-k="0"><b data-n="70">70%</b><span>the maker</span></button><button type="button" data-k="1"><b data-n="15">15%</b><span>8 guild members</span></button><button type="button" data-k="2"><b data-n="15">15%</b><span>the house</span></button></div>
+      <p class="splitn" id="splitN">The wallet that launched the craft. pump.fun’s own fee sharing pays it on every trade, for as long as the token trades.</p>
       <div class="faq">
         <details><summary>Which models do the machines use?</summary><p>Krea 2 (great for photos, scenes and characters) and Ideogram 3.0 (great for text, logos, memes and posters). Each craft picks one when it’s made. Every picture is made fresh by that model at the moment you press run.</p></details>
         <details><summary>How many runs does a machine get?</summary><p>Every live craft gets 20 free runs a day, 60 while its token is trading and 150 once it graduates. The house also keeps one daily cap across all machines. Counts reset at 00:00 UTC, and a run that fails isn’t counted.</p></details>
@@ -127,6 +130,6 @@
 <script src="/assets/js/core.js?v=1"></script>
 <script src="/assets/js/live.js?v=1"></script>
 <script src="/assets/js/cross.js?v=1"></script>
-<script src="/assets/js/app.js?v=2"></script>
+<script src="/assets/js/app.js?v=3"></script>
 </body>
 </html>
