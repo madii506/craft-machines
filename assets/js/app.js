@@ -1,0 +1,355 @@
+// CRAFT: the page. The machines, making a craft, real pump.fun coins live, the guild.
+(function () {
+  'use strict';
+  const C = window.Core, $ = C.$, $$ = C.$$, esc = C.esc;
+  const MODELS = { ideogram: { label: 'Ideogram 3.0', good: 'Text, logos, memes, posters' }, krea: { label: 'Krea 2', good: 'Photos, scenes, characters' } };
+  const LABEL = { alive: 'live', asleep: 'quiet', dead: 'idle', ascended: 'graduated', pending: 'launching' };
+  const PRESETS = [
+    { n: 'Meme maker', model: 'ideogram', ask: 'your caption', r: 'A funny internet meme picture with the caption "{input}" in big bold white letters with a black outline, one clear scene, bright colours' },
+    { n: 'PFP maker', model: 'krea', ask: 'who it is', r: 'A profile picture of {input}, centred, looking at the camera, soft studio light, plain bold-colour background, crisp detail' },
+    { n: 'Sticker maker', model: 'ideogram', ask: 'a thing', r: 'A die-cut sticker of {input}, cute flat cartoon style, thick white border, black outlines, plain light background' },
+    { n: 'Poster maker', model: 'ideogram', ask: 'a headline', r: 'A bold 70s-style poster with the headline "{input}", chunky type, two colours, halftone texture' },
+    { n: '3D toy', model: 'krea', ask: 'a character', r: 'A glossy 3D vinyl toy of {input}, studio product photo, soft shadow, pastel background' },
+    { n: 'Pixel art', model: 'ideogram', ask: 'a scene', r: 'Pixel art of {input}, 32-bit game style, crisp pixels, limited palette, dark outlines' },
+  ];
+  const S = { board: null, sort: 'hot', liked: C.store.get('cr-liked') || {}, model: 'ideogram', tests: [], cover: null, lt: 'new', births: [], trend: null, trendAt: 0, open: { ideogram: false, krea: false } };
+  const coins = () => (S.board && S.board.coins) || [];
+  const coinOf = m => coins().find(k => k.mint === m);
+  const fmt = n => (n == null ? '0' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n));
+  const usdOf = (sol) => (sol != null && S.board && S.board.solUsd ? C.usd(sol * S.board.solUsd) : '—');
+  const symOf = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  const page = m => location.origin + '/c/' + m;
+  const intent = t => 'https://x.com/intent/post?text=' + encodeURIComponent(t);
+  const runImg = id => '/api/run?img=' + id;
+  const img = (src, alt) => `<img src="${esc(src)}" alt="${esc(alt || '')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">`;
+  const proxied = url => '/api/logos?img=' + encodeURIComponent(url);
+
+  // ---------- nav + reveal ----------
+  if ('IntersectionObserver' in window) {
+    const links = $$('.links a');
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-45% 0px -50% 0px' });
+    $$('main section[id]').forEach(s => io.observe(s));
+  }
+  $$('.sh, .form, .pv, .vgrid, .splitx, .faq, .steps3').forEach(e => e.classList.add('reveal'));
+  C.reveal();
+
+  // ---------- the hero: which models are on, the freshest runs ----------
+  function models() {
+    $('#models').innerHTML = Object.keys(MODELS).map(k => `<span class="mchip ${S.open[k] ? 'on' : ''}"><i></i>${MODELS[k].label} · ${S.open[k] ? 'online' : 'offline'}</span>`).join('');
+  }
+  const SPOTS = [[2, 8, -8], [70, 2, 7], [-2, 62, 6], [72, 64, -6]];
+  function fresh() {
+    const rs = (S.board && S.board.runs) || [], el = $('#fresh');
+    el.innerHTML = rs.slice(0, 4).map((r, i) => `<img src="${runImg(r.id)}" alt="" style="left:${SPOTS[i][0]}%;top:${SPOTS[i][1]}%;transform:rotate(${SPOTS[i][2]}deg);animation-delay:${0.3 + i * 0.12}s">`).join('');
+  }
+
+  // ---------- the strip: fresh off the machines ----------
+  const tape = $('#tape'); let tx = 0, tlast = 0;
+  function strip() {
+    const rs = (S.board && S.board.runs) || [];
+    if (!rs.length) { tape.innerHTML = '<span class="mut">Nothing yet: every picture the machines make shows up here.</span>'; tx = 0; tape.style.transform = ''; return; }
+    tape.innerHTML = rs.map(r => `<a href="/c/${r.mint}" data-m="${r.mint}"><img src="${runImg(r.id)}" alt="" loading="lazy"><span>${esc(r.name)}<small>$${esc(r.symbol)} · “${esc(String(r.input).slice(0, 26))}”</small></span></a>`).join('');
+    $$('a', tape).forEach(a => a.addEventListener('click', e => { e.preventDefault(); openCraft(a.dataset.m); }));
+  }
+  (function roll(now) {
+    const dt = tlast ? Math.min(64, now - tlast) : 16; tlast = now;
+    if (!document.hidden && !C.calm && tape.children.length > 2 && tape.scrollWidth > tape.parentNode.clientWidth) {
+      tx -= dt * 0.04; const f = tape.firstElementChild;
+      if (f && tx + f.offsetWidth + 12 < 0) { tx += f.offsetWidth + 12; tape.appendChild(f); }
+      tape.style.transform = `translate3d(${tx.toFixed(1)}px,0,0)`;
+    }
+    requestAnimationFrame(roll);
+  })(0);
+
+  // ---------- 01 the machines ----------
+  function sorted(ks) {
+    const a = ks.slice(), t = k => new Date(k.born_at || 0).getTime();
+    if (S.sort === 'new') return a.sort((x, y) => t(y) - t(x));
+    if (S.sort === 'runs') return a.sort((x, y) => (y.runs || 0) - (x.runs || 0) || t(y) - t(x));
+    const s = k => (k.runs || 0) * 2 + (k.likes || 0) * 3 + (k.state === 'alive' || k.state === 'ascended' ? 20 : 0) + (k.last_run_at && Date.now() - new Date(k.last_run_at) < 36e5 ? 30 : 0);
+    return a.sort((x, y) => s(y) - s(x) || t(y) - t(x));
+  }
+  function grid() {
+    const ks = sorted(coins()), el = $('#grid');
+    if (!ks.length) { el.innerHTML = `<div class="empty"><img src="/assets/img/block.png" alt=""><div><h3>No machines yet.</h3><p>The first craft gets the whole board to itself. Build it, test it, launch its token.</p><a class="btn ink" href="#make">Make the first craft</a></div></div>`; return; }
+    el.innerHTML = ks.map((k, i) => `<article class="mc" data-m="${k.mint}" style="--i:${Math.min(i, 10)}"><div class="im">${img('/i/' + k.mint, k.name)}<span class="tag mint">${esc((MODELS[k.model] || {}).label || k.model)}</span></div>
+      <div class="bd"><h3>${esc(k.name)}<span>$${esc(k.symbol)}</span></h3><p>${esc(k.line)}</p>
+      <div class="ft"><span class="st ${k.state}"><i></i>${LABEL[k.state] || k.state}</span><span>${fmt(k.runs || 0)} runs</span></div></div></article>`).join('');
+    $$('.mc', el).forEach(c => c.addEventListener('click', () => openCraft(c.dataset.m)));
+    Live.watch(ks.filter(k => k.state !== 'ascended').map(k => k.mint));
+  }
+  $$('#sorts button').forEach(b => b.onclick = () => { S.sort = b.dataset.s; $$('#sorts button').forEach(x => x.classList.toggle('on', x === b)); grid(); });
+  Live.on('trade', t => { const c = $(`#grid .mc[data-m="${t.mint}"] .st`); if (c && !c.classList.contains('ascended')) { c.className = 'st alive'; c.innerHTML = '<i></i>live'; } });
+
+  // ---------- 02 make a craft ----------
+  const tk = $('#tk');
+  function mdl() {
+    $('#mdl').innerHTML = Object.keys(MODELS).map(k => `<button type="button" class="mo ${S.model === k ? 'on' : ''}" data-k="${k}"><b>${MODELS[k].label}</b><span>${MODELS[k].good}</span><small><i class="${S.open[k] ? 'on' : ''}"></i>${S.open[k] ? 'online' : 'offline right now'}</small></button>`).join('');
+    $$('#mdl .mo').forEach(b => b.onclick = () => { S.model = b.dataset.k; mdl(); });
+  }
+  $('#presets').innerHTML = PRESETS.map((p, i) => `<button type="button" data-i="${i}">${p.n}</button>`).join('');
+  $$('#presets button').forEach(b => b.onclick = () => {
+    const p = PRESETS[+b.dataset.i]; $('#recipe').value = p.r; $('#ask').value = p.ask; S.model = p.model; mdl();
+    if (!$('#line').value.trim()) $('#line').value = p.n.toLowerCase() + ': ' + p.ask + ' in, a picture out';
+    pv();
+  });
+  function pv() {
+    const nm = $('#nm').value.trim() || 'Meme Press', sy = symOf(tk.value) || 'PRESS', line = $('#line').value.trim() || 'memes with your words on them, in one style';
+    $('#pvName').textContent = nm; $('#pvTk').textContent = '$' + sy; $('#pvLine').textContent = line;
+    const cur = S.tests.find(t => t.id === S.cover);
+    if (cur && !$('#pvImg > img[data-id="' + cur.id + '"]')) $('#pvImg').innerHTML = `<img src="${runImg(cur.id)}" alt="" data-id="${cur.id}">`;
+    $('#thumbs').innerHTML = S.tests.map(t => `<button type="button" class="${t.id === S.cover ? 'on' : ''}" data-id="${t.id}" aria-label="Use this test as the token’s picture"><img src="${runImg(t.id)}" alt=""></button>`).join('');
+    $$('#thumbs button').forEach(b => b.onclick = () => { S.cover = +b.dataset.id; pv(); });
+    goLabel();
+  }
+  tk.addEventListener('input', () => { const v = symOf(tk.value); if (v !== tk.value) tk.value = v; pv(); });
+  ['nm', 'line'].forEach(id => $('#' + id).addEventListener('input', pv));
+  $('#testBtn').onclick = async () => {
+    const b = $('#testBtn'), st = $('#tSt'), recipe = $('#recipe').value.trim(), input = $('#tin').value.trim() || $('#nm').value.trim();
+    st.className = 'status';
+    if (recipe.length < 12) { st.className = 'status err'; st.textContent = 'Write the recipe first, or tap a preset.'; return; }
+    if (!input) { st.className = 'status err'; st.textContent = 'Type something to test it with.'; $('#tin').focus(); return; }
+    if (!S.open[S.model]) { st.className = 'status err'; st.textContent = MODELS[S.model].label + ' is offline right now. Pick the other model.'; return; }
+    b.disabled = true; st.textContent = `${MODELS[S.model].label} is making it…`;
+    $('#pvImg').insertAdjacentHTML('beforeend', '<div class="spin">making it…</div>');
+    const r = await C.post('/api/run', { test: { model: S.model, recipe, input } }).catch(() => null);
+    b.disabled = false; const sp = $('#pvImg .spin'); if (sp) sp.remove();
+    if (!r || !r.ok) { st.className = 'status err'; st.textContent = (r && r.error) || 'The machine didn’t answer. Try again.'; return; }
+    S.tests.unshift({ id: r.id }); S.tests = S.tests.slice(0, 6); S.cover = r.id;
+    st.className = 'status ok'; st.textContent = 'Made by ' + r.by + '. The ticked one becomes your token’s picture.';
+    pv();
+  };
+  const buy = Cross.buyBox($('#buyBox'));
+  function splitBox(gods) {
+    const j = S.board || {}, pool = (j.lives && j.lives.alive) || 0, n = gods ? gods.length : Math.min(8, pool), has = n > 0, you = has ? 70 : 85;
+    $('#split').innerHTML = `<div class="bars"><i style="width:${you}%"></i><i style="width:${has ? 15 : 0}%"></i><i style="width:15%"></i></div>
+      <dl><div><dt>you</dt><dd>${you}%</dd></div><div><dt>its guild</dt><dd>${has ? 15 : 0}%</dd><div class="vw">${Array.from({ length: 8 }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</div></div><div><dt>house</dt><dd>15%</dd></div></dl>
+      <p>${gods ? (gods.length ? 'Seated just now: ' + gods.map(g => `${C.short(g.wallet)} (${g.stage})`).join(', ') + '.' : 'Nobody to seat yet, so the guild’s 15% is yours.') : has ? `${pool} in the draw. 8 are seated the moment you launch.` : 'No guild members yet, so their 15% stays with you.'}</p>`;
+  }
+  function goLabel() { const b = $('#goBtn'), j = S.board; if (j && !j.open) { b.disabled = true; b.textContent = 'Launching opens soon'; return; } b.disabled = false; b.textContent = C.S.me ? `Launch $${symOf(tk.value) || 'it'} with this machine` : 'Connect wallet to launch'; }
+  const status = (t, c) => { const s = $('#goStatus'); s.className = 'status' + (c ? ' ' + c : ''); s.innerHTML = t || ''; };
+  $('#goBtn').onclick = async () => {
+    if (!C.S.me) { await C.connect(); return; }
+    const symbol = symOf(tk.value), name = $('#nm').value.trim(), line = $('#line').value.trim(), recipe = $('#recipe').value.trim(), ask = $('#ask').value.trim() || 'a word';
+    if (!name) { $('#nm').focus(); return status('Give your machine a name.', 'err'); }
+    if (!symbol) { tk.focus(); return status('Type its ticker.', 'err'); }
+    if (line.length < 8) { $('#line').focus(); return status('Write what it makes: one line.', 'err'); }
+    if (recipe.length < 12) { $('#recipe').focus(); return status('Write its recipe, or tap a preset.', 'err'); }
+    if (!S.cover) return status('Do a test run first: its picture becomes the token’s picture.', 'err');
+    if (buy.over()) return status('Up to 5 SOL in the first buy.', 'err');
+    const btn = $('#goBtn'), prog = $('#goProg'); btn.disabled = true; status(''); $('#goRes').hidden = true;
+    try {
+      const r = await Cross.run({ name, symbol, line, model: S.model, recipe, ask, cover: S.cover, x: $('#xh').value.trim(), devBuy: buy.lamports(), onStep: i => Cross.steps(prog, i), onDraw: m => splitBox(m.gods) });
+      Cross.steps(prog, Cross.STEPS.length, true);
+      const res = $('#goRes'); res.hidden = false;
+      res.innerHTML = `<div class="res"><b>$${esc(symbol)} is live and its machine is open.</b>${r.buyNote ? ' ' + esc(r.buyNote) : ''}<br><a href="/c/${r.mint}">Open its machine →</a> · <a href="https://pump.fun/coin/${r.mint}" target="_blank" rel="noopener">pump.fun ↗</a></div>`;
+      status('Done.', 'ok'); S.tests = []; S.cover = null; pv(); load();
+    } catch (e) { status(esc(C.human(e)) + (e.mint ? ` <a href="/c/${e.mint}">Open it</a>` : ''), 'err'); }
+    finally { btn.disabled = false; goLabel(); }
+  };
+
+  // ---------- running a machine ----------
+  async function run(m, input, onDone) {
+    const r = await C.post('/api/run', { mint: m, input }).catch(() => null);
+    if (!r || !r.ok) { C.toast((r && r.error) || 'The machine stalled. Try again.'); onDone && onDone(null); return null; }
+    onDone && onDone(r); return r;
+  }
+  function shareRun(k, id) { C.store.set('cr-last', id); window.open(intent(`made with the $${k.symbol} machine on Craft\n\n${page(k.mint)}`), '_blank', 'noopener'); }
+  function saveRun(k, id) { const a = document.createElement('a'); a.href = runImg(id); a.download = `${String(k.symbol).toLowerCase()}-${id}.webp`; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1500); }
+
+  // ---------- a craft, opened ----------
+  let cur = null;
+  async function openCraft(m) {
+    const k0 = coinOf(m);
+    C.sheet(k0 ? k0.name : 'machine', `<div class="cs"><div><div class="big" id="cBig">${k0 ? img('/i/' + m, k0.name) : ''}</div></div><div id="cSide"><p class="mut">Loading…</p></div><div class="gal" id="cGal"></div></div>`);
+    if (location.pathname !== '/c/' + m) history.replaceState(null, '', '/c/' + m + location.hash);
+    C.closeSheet.after = () => { cur = null; if (location.pathname.startsWith('/c/')) history.replaceState(null, '', '/' + location.hash); };
+    const j = await C.get('/api/craft?mint=' + m).catch(() => null);
+    const side = $('#cSide'); if (!side) return;
+    if (!j || !j.ok) { side.innerHTML = `<p class="mut">${esc((j && j.error) || 'Didn’t load. Try again.')}</p>`; return; }
+    const k = j.coin; cur = { k, j, shown: null };
+    $('#sheetTitle').textContent = '$' + k.symbol;
+    const live = k.status === 'live', on = j.models && j.models[k.model];
+    side.innerHTML = `<h3>${esc(k.name)}</h3><div class="sub">$${esc(k.symbol)} · ${esc((MODELS[k.model] || {}).label || k.model)} · ${fmt(k.runs)} runs</div><p class="line">${esc(k.line)}</p>
+      <div class="runbox"><input class="in" id="cIn" maxlength="120" placeholder="${esc(k.ask || 'a word')}" ${live ? '' : 'disabled'}><button class="btn ink" id="cRun" type="button" ${live && on ? '' : 'disabled'}>Run it</button></div>
+      <p class="runmeta" id="cMeta">${!live ? 'It opens the moment its token is live.' : !on ? 'Its model is offline right now.' : `${j.today.left} of ${j.today.cap} runs left today.`}</p>
+      <div class="rkit" id="cKit" hidden><button class="btn sm" id="cSave" type="button">⬇ save it</button><button class="btn sm mint" id="cShare" type="button">post it on X</button></div>
+      <dl class="dstat"><div><dt>mcap</dt><dd>${usdOf(k.mcap_sol)}</dd></div><div><dt>approvals</dt><dd id="cLikes">${fmt(k.likes)}</dd></div><div><dt>to pay out</dt><dd>${C.sol(k.vault_lamports || 0)}</dd></div></dl>
+      <div class="dbtn"><button class="ok2 ${S.liked[m] ? 'on' : ''}" type="button" id="cOk">✦ approve</button><a class="btn sm mint" href="https://pump.fun/coin/${k.mint}" target="_blank" rel="noopener">pump.fun ↗</a><a class="btn sm" href="https://dexscreener.com/solana/${k.mint}" target="_blank" rel="noopener">chart ↗</a><button class="btn sm" type="button" id="cCa">copy CA</button><button class="btn sm" type="button" id="cPay" ${live ? '' : 'disabled'}>pay out</button></div>
+      <div class="recipe"><b>its recipe</b><br>${esc(k.recipe)}</div>
+      <div class="mut" style="font:11.5px GM;margin-top:12px">its guild · ${(k.gods || []).length} seated</div><div class="vw">${Array.from({ length: 8 }, (_, i) => `<i class="${i < (k.gods || []).length ? 'on' : ''}" title="${k.gods && k.gods[i] ? C.short(k.gods[i].wallet) : ''}"></i>`).join('')}</div>`;
+    gallery(j.runs);
+    const inp = $('#cIn'), btn = $('#cRun');
+    const go = async () => {
+      const q = inp.value.trim(); if (!q) { inp.focus(); return; }
+      btn.disabled = true; $('#cBig').insertAdjacentHTML('beforeend', '<div class="spin">making it…</div>');
+      await run(m, q, r => {
+        const sp = $('#cBig .spin'); if (sp) sp.remove(); btn.disabled = false;
+        if (!r) return;
+        show(r.id); $('#cMeta').textContent = r.left != null ? `${r.left} of ${j.today.cap} runs left today.` : 'Made.';
+        cur.j.runs.unshift({ id: r.id, input: q, model: r.model, at: r.at }); gallery(cur.j.runs);
+      });
+    };
+    if (btn) { btn.onclick = go; inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); }
+    $('#cSave').onclick = () => cur.shown && saveRun(k, cur.shown);
+    $('#cShare').onclick = () => cur.shown && shareRun(k, cur.shown);
+    $('#cCa').onclick = () => C.copy(k.mint);
+    $('#cOk').onclick = e => approve(m, e.currentTarget);
+    $('#cPay').onclick = async e => { const b = e.currentTarget; b.disabled = true; try { const r = await Cross.feed(m); if (r) C.toast('Paid out to everyone in its split.'); } catch (er) { C.toast(C.human(er)); } b.disabled = false; };
+    if (S.prefill) { inp.value = S.prefill; S.prefill = null; if (!btn.disabled) go(); }
+  }
+  function show(id) { cur.shown = id; const big = $('#cBig'); if (big) big.innerHTML = `<img src="${runImg(id)}" alt="">`; const kit = $('#cKit'); if (kit) kit.hidden = false; }
+  function gallery(runs) {
+    const el = $('#cGal'); if (!el) return;
+    el.innerHTML = runs && runs.length ? `<h4>its latest runs</h4><div class="g">${runs.map(r => `<button type="button" data-id="${r.id}" title="${esc(r.input)}"><img src="${runImg(r.id)}" alt="${esc(r.input)}" loading="lazy"></button>`).join('')}</div>` : '<h4>its latest runs</h4><p class="mut" style="margin:0">Nobody has run it yet. Be the first.</p>';
+    $$('.g button', el).forEach(b => b.onclick = () => show(+b.dataset.id));
+  }
+  async function approve(m, btn) {
+    btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+    if (S.liked[m]) return;
+    S.liked[m] = 1; C.store.set('cr-liked', S.liked); btn.classList.add('on');
+    const r = await C.post('/api/like', { mint: m }).catch(() => null);
+    if (r && r.ok) { const k = coinOf(m); if (k) k.likes = r.likes; const el = $('#cLikes'); if (el) el.textContent = fmt(r.likes); }
+    else if (r && !r.ok) C.toast(r.error);
+  }
+
+  // ---------- 03 live on pump.fun ----------
+  const LG = $('#lgrid');
+  function liveCard(c) {
+    const pic = c.icon ? img(proxied(c.icon), c.name) : `<span class="ph">${esc((c.symbol || '?').slice(0, 1))}</span>`;
+    const meta = c.kind === 'new' ? `<span>new · ${C.ago(c.at)}</span><span>${c.mcapSol ? (c.mcapSol).toFixed(0) + ' SOL' : ''}</span>`
+      : `<span>${c.mcap ? C.usd(c.mcap) : '—'}</span><span class="${c.ch >= 0 ? 'up' : 'dn'}">${c.ch == null ? '' : (c.ch >= 0 ? '+' : '') + c.ch.toFixed(1) + '% 1h'}</span>`;
+    return `<div class="lc" data-m="${esc(c.mint)}"><div class="im">${pic}</div><div class="bd"><b>${esc(c.name || c.symbol)}</b><div class="meta"><span>$${esc(symOf(c.symbol) || '?')}</span></div><div class="meta">${meta}</div>
+      <div class="act"><button type="button" data-run="${esc(c.mint)}">Run a machine</button><a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener" aria-label="Open on pump.fun">↗</a></div></div></div>`;
+  }
+  function liveGrid() {
+    const list = S.lt === 'new' ? S.births : S.trend;
+    if (S.lt === 'trending' && S.trend === null) { LG.innerHTML = '<div class="lnote">Reading what’s trending on pump.fun…</div>'; return; }
+    if (S.lt === 'trending' && S.trend === false) { LG.innerHTML = '<div class="lnote">The trending list didn’t answer. <button class="btn sm" type="button" id="tRetry">Try again</button></div>'; $('#tRetry').onclick = () => { S.trendAt = 0; trending(); }; return; }
+    if (!list.length) { LG.innerHTML = `<div class="lnote">${Live.S.up ? 'Waiting for the next coin to be born on pump.fun…' : 'Connecting to pump.fun’s live feed…'}</div>`; return; }
+    LG.innerHTML = list.slice(0, 18).map(liveCard).join('');
+    $$('[data-run]', LG).forEach(b => b.onclick = () => { const c = list.find(x => x.mint === b.dataset.run); if (c) pickFor(c); });
+  }
+  $$('#ltabs button').forEach(b => b.onclick = () => { S.lt = b.dataset.l; $$('#ltabs button').forEach(x => x.classList.toggle('on', x === b)); if (S.lt === 'trending') trending(); liveGrid(); });
+  Live.on('status', up => { $('#tDot').classList.toggle('on', up); if (S.lt === 'new' && !S.births.length) liveGrid(); });
+  const pending = new Map();
+  Live.on('birth', b => {
+    const c = { kind: 'new', mint: b.mint, name: b.name, symbol: b.symbol, at: b.at, mcapSol: b.mcap, icon: null };
+    S.births.unshift(c); S.births = S.births.slice(0, 30);
+    if (b.uri && /^https:\/\//.test(b.uri)) {
+      pending.set(b.mint, b.uri);
+      setTimeout(async () => {
+        const u = pending.get(b.mint); pending.delete(b.mint); if (!u) return;
+        const r = await C.get('/api/logos?uri=' + encodeURIComponent(u)).catch(() => null);
+        if (r && r.ok && r.image) { c.icon = r.image; if (S.lt === 'new') { const card = LG.querySelector(`.lc[data-m="${CSS.escape(b.mint)}"] .im`); if (card) card.innerHTML = img(proxied(r.image), c.name); } }
+      }, 1200);
+    }
+    if (S.lt === 'new') { if (!throttle) { throttle = setTimeout(() => { throttle = 0; liveGrid(); }, 900); } }
+  });
+  let throttle = 0;
+  async function trending() {
+    if (S.trend && Date.now() - S.trendAt < 60000) return liveGrid();
+    try {
+      const r = await fetch('https://lite-api.jup.ag/tokens/v2/toptrending/1h?limit=80').then(x => x.json());
+      const arr = Array.isArray(r) ? r : (r && (r.tokens || r.data)) || [];
+      S.trend = arr.filter(t => t && t.id && (t.launchpad === 'pump.fun' || /pump$/.test(t.id))).slice(0, 24).map(t => ({
+        kind: 'trending', mint: t.id, name: String(t.name || '').slice(0, 40), symbol: String(t.symbol || '').slice(0, 14), icon: typeof t.icon === 'string' && /^https:\/\//.test(t.icon) ? t.icon : null,
+        mcap: Number(t.mcap) || Number(t.fdv) || null, ch: t.stats1h && isFinite(+t.stats1h.priceChange) ? +t.stats1h.priceChange : null }));
+      S.trendAt = Date.now();
+    } catch { S.trend = false; }
+    if (S.lt === 'trending') liveGrid();
+  }
+  // run one of our machines for a live pump.fun coin
+  function pickFor(c) {
+    const live = coins().filter(k => !k.status || k.status === 'live');
+    const word = `${c.name || c.symbol} ($${symOf(c.symbol)})`;
+    if (!live.length) { C.sheet('run a machine', `<p>No machines are live yet. The first craft you make can run for <b>${esc(word)}</b> and every other coin.</p><a class="btn ink wide" href="#make" id="pkMake">Make the first craft</a>`); $('#pkMake').onclick = () => C.closeSheet(); return; }
+    C.sheet('pick a machine', `<p class="mut" style="margin:0 0 12px">It runs with “${esc(word)}” as its input.</p><div class="pick">${live.slice(0, 12).map(k => `<button type="button" data-m="${k.mint}"><img src="/i/${k.mint}" alt=""><span><b>${esc(k.name)}</b><small>$${esc(k.symbol)} · ${esc((MODELS[k.model] || {}).label || k.model)}</small></span></button>`).join('')}</div>`);
+    $$('.pick button').forEach(b => b.onclick = () => { S.prefill = word; C.closeSheet(); openCraft(b.dataset.m); });
+  }
+
+  // ---------- 04 the guild ----------
+  function ladder() {
+    const R = [['apprentice', '1x', 'from day 0'], ['journeyman', '1.5x', 'from day 3'], ['artisan', '2x', 'from day 10'], ['master', '3x', 'from day 30']];
+    const el = $('#ladder'); el.classList.add('stg');
+    el.innerHTML = R.map(r => `<div class="rung"><b>${r[0]}</b><div class="x">${r[1]}</div><small>${r[2]}</small></div>`).join('');
+    C.reveal($('#guild'));
+  }
+  const TOK = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'], CB = 'ComputeBudget111111111111111111111111111111';
+  async function me() {
+    const el = $('#me'), j = S.board || {};
+    if (!C.S.me) { el.innerHTML = `<h3>Your seat</h3><div class="big">no seat</div><p class="mut">Connect the wallet that holds your $CRAFT.</p><button class="btn ink" id="meC" type="button">Connect wallet</button>`; $('#meC').onclick = () => C.connect(); return; }
+    if (!j.life) { el.innerHTML = `<h3>Your seat</h3><div class="big">soon</div><p class="mut">Joining opens when $CRAFT launches.</p>`; return; }
+    el.innerHTML = '<h3>Your seat</h3><p class="mut">Reading…</p>';
+    const r = await C.get('/api/born?w=' + C.S.me).catch(() => null);
+    if (!r || !r.ok) { el.innerHTML = `<h3>Your seat</h3><p class="mut">${esc((r && r.error) || 'Didn’t load. Try again.')}</p>`; return; }
+    const l = r.life, min = r.minBurn || 10000, form = label => `<div class="burn"><input class="in" id="bAmt" inputmode="numeric" value="${min}"><button class="btn ink" id="bBtn" type="button">${label}</button></div><p class="mut" style="font-size:13px;margin:8px 0 0">You hold ${r.balance == null ? '—' : Number(r.balance).toLocaleString('en-US')} $CRAFT. Joining burns at least ${min.toLocaleString('en-US')}.</p><p class="status" id="bSt"></p>`;
+    if (!l) el.innerHTML = `<h3>Your seat</h3><div class="big">no seat</div>${form('Burn and join the guild')}`;
+    else if (l.state === 'dead') el.innerHTML = `<h3>Your seat</h3><div class="big">left</div><p class="mut">This wallet sold below what it held after joining. Guilds it already sits on still pay it.</p>${form('Join again')}`;
+    else el.innerHTML = `<h3>Your seat</h3><div class="big">${esc(l.stage)}</div><dl><div><dt>in the guild</dt><dd>${Math.floor(l.days || 0)} days</dd></div><div><dt>tickets</dt><dd>${l.mult}x</dd></div><div><dt>next</dt><dd>${l.next ? l.next.stage + ' in ' + Math.ceil(l.next.in) + 'd' : 'top rank'}</dd></div><div><dt>machines</dt><dd>${(l.godchildren || []).length}</dd></div></dl>
+      <div class="kids">${(l.godchildren || []).slice(0, 10).map(c => `<a href="/c/${c.mint}"><span>$${esc(c.symbol)}</span><span>${C.sol(c.vault_lamports || 0)} waiting</span></a>`).join('')}</div>${form('Burn more')}`;
+    const b = $('#bBtn'); if (b) b.onclick = () => burn(r);
+  }
+  async function burn(info) {
+    const st = (t, c) => { const s = $('#bSt'); if (s) { s.className = 'status' + (c ? ' ' + c : ''); s.textContent = t; } };
+    const amt = Math.floor(Number(String($('#bAmt').value).replace(/[, _]/g, '')));
+    if (!(amt >= (info.minBurn || 10000))) return st(`Joining burns at least ${(info.minBurn || 10000).toLocaleString('en-US')} $CRAFT.`, 'err');
+    const btn = $('#bBtn'); btn.disabled = true;
+    try {
+      st('Building the burn…');
+      const r = await C.post('/api/born', { wallet: C.S.me, amount: amt }); if (!r.ok) throw new Error(r.error);
+      const w3 = await C.loadWeb3(), tx = w3.VersionedTransaction.deserialize(Uint8Array.from(atob(r.tx), c => c.charCodeAt(0)));
+      const msg = tx.message, keys = msg.staticAccountKeys.map(k => k.toBase58()); let ok = false;
+      for (const ix of msg.compiledInstructions) {
+        const prog = keys[ix.programIdIndex], d = ix.data; if (prog === CB) continue;
+        if (!TOK.includes(prog) || d[0] !== 15 || ok) throw new Error('The burn isn’t what was shown, so nothing was signed.');
+        let v = 0n; for (let i = 8; i >= 1; i--) v = v * 256n + BigInt(d[i]);
+        const ks = ix.accountKeyIndexes.map(i => keys[i]);
+        if (v !== BigInt(r.amount) || ks[1] !== r.mint || ks[2] !== C.S.me) throw new Error('The burn isn’t what was shown, so nothing was signed.');
+        ok = true;
+      }
+      if (!ok) throw new Error('The burn is missing, so nothing was signed.');
+      st('Waiting for your wallet…'); const [signed] = await C.signAll([tx]); const sig = await C.send(signed); st('Burning…'); await C.confirm(sig);
+      st('Reading it from Solana…'); let v = null;
+      for (let i = 0; i < 6; i++) { v = await C.post('/api/born', { wallet: C.S.me, sig }).catch(() => null); if (v && v.ok) break; await new Promise(z => setTimeout(z, 2000)); }
+      if (!v || !v.ok) throw new Error((v && v.error) || 'The burn landed; it shows after the next check.');
+      C.toast('You’re in the guild.'); load();
+    } catch (e) { st(C.human(e), 'err'); btn.disabled = false; }
+  }
+  function vtop() {
+    const e = (S.board && S.board.elders) || [];
+    $('#vtop').innerHTML = `<h3>Longest in the guild</h3>` + (e.length ? `<table class="tbl"><thead><tr><th>#</th><th>wallet</th><th>rank</th><th>machines</th></tr></thead><tbody>${e.map((x, i) => `<tr><td>${i + 1}</td><td>${C.short(x.wallet)}</td><td>${esc(x.stage)}</td><td>${x.kids}</td></tr>`).join('')}</tbody></table>` : `<p class="mut">${S.board && S.board.life ? 'Nobody has joined yet. The first one keeps the top spot for a while.' : 'Opens when $CRAFT launches.'}</p>`);
+  }
+
+  // ---------- load ----------
+  function caBox() {
+    const m = S.board && S.board.life, el = $('#caBox'); el.hidden = !m; if (!m) return;
+    el.innerHTML = `<span>$CRAFT</span><code>${C.short(m, 6)}</code><button type="button" id="caC">copy</button><a href="https://pump.fun/coin/${m}" target="_blank" rel="noopener">buy</a><a href="https://dexscreener.com/solana/${m}" target="_blank" rel="noopener">chart</a>`;
+    $('#caC').onclick = () => C.copy(m);
+  }
+  let first = true;
+  async function load() {
+    const j = await C.get('/api/board').catch(() => null);
+    S.board = j && (j.ok || j.offline) ? j : { coins: [], runs: [], elders: [], lives: { alive: 0 }, open: false, models: {} };
+    S.open = Object.assign({ ideogram: false, krea: false }, S.board.models || {});
+    if (!S.open[S.model] && S.open.krea) S.model = 'krea';
+    models(); fresh(); strip(); grid(); mdl(); splitBox(); pv(); caBox(); me(); vtop();
+    if (first) {
+      first = false; ladder(); liveGrid();
+      const mm = location.pathname.match(/^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})/);
+      if (mm) openCraft(mm[1]);
+    }
+  }
+  C.onWallet(() => { goLabel(); me(); });
+  Live.start();
+  load();
+  setInterval(() => {
+    if (document.hidden) return;
+    C.get('/api/board').then(j => {
+      if (!j || !j.ok) return;
+      const sig = b => JSON.stringify([((b && b.coins) || []).map(k => [k.mint, k.state, k.runs, k.likes]), ((b && b.runs) || []).map(r => r.id)]);
+      const changed = sig(j) !== sig(S.board); S.board = j; S.open = Object.assign({ ideogram: false, krea: false }, j.models || {});
+      if (changed) { fresh(); strip(); grid(); } vtop();
+    }).catch(() => {});
+  }, 45000);
+})();
