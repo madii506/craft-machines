@@ -12,7 +12,7 @@
     { n: '3D toy', model: 'krea', ask: 'a character', r: 'A glossy 3D vinyl toy of {input}, studio product photo, soft shadow, pastel background' },
     { n: 'Pixel art', model: 'ideogram', ask: 'a scene', r: 'Pixel art of {input}, 32-bit game style, crisp pixels, limited palette, dark outlines' },
   ];
-  const S = { board: null, sort: 'hot', liked: C.store.get('cr-liked') || {}, model: 'ideogram', tests: [], cover: null, lt: 'new', births: [], trend: null, trendAt: 0, open: { ideogram: false, krea: false } };
+  const S = { board: null, sort: 'hot', liked: C.store.get('cr-liked') || {}, model: 'ideogram', tests: [], cover: null, lt: 'trending', births: [], nb: 0, trend: null, trendAt: 0, open: { ideogram: false, krea: false } };
   const coins = () => (S.board && S.board.coins) || [];
   const coinOf = m => coins().find(k => k.mint === m);
   const fmt = n => (n == null ? '0' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n));
@@ -23,6 +23,15 @@
   const runImg = id => '/api/run?img=' + id;
   const img = (src, alt) => `<img src="${esc(src)}" alt="${esc(alt || '')}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">`;
   const proxied = url => '/api/logos?img=' + encodeURIComponent(url);
+  // real pump.fun coins: their own picture (through our image proxy), or their first letter when it won't load
+  window.__ph = el => { const s = document.createElement('span'); s.className = 'ph'; s.textContent = el.getAttribute('data-ch') || '?'; el.replaceWith(s); };
+  const ini = sym => (symOf(sym) || '?').slice(0, 1);
+  const pic = (url, alt, sym) => url ? `<img src="${esc(proxied(url))}" alt="${esc(alt || '')}" data-ch="${esc(ini(sym))}" loading="lazy" decoding="async" onerror="__ph(this)">` : `<span class="ph">${esc(ini(sym))}</span>`;
+  const httpsOf = u => (typeof u === 'string' && /^https:\/\//i.test(u.trim()) ? 'https://' + u.trim().slice(8, 408) : null);
+  const pct = v => (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-US') : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
+  const chg = c => (c.ch == null || !isFinite(c.ch) ? '' : `<i class="${c.ch >= 0 ? 'up' : 'dn'}">${c.ch >= 0 ? '+' : '−'}${pct(Math.abs(c.ch))}%</i>`);
+  const BAD = /n[i1]gg|f[a@]gg?[o0]t|\brap(e|ed|ist)\b|p[o0]rn|\bnud(e|es|ity)\b|nsfw|hitler|nazi|\bkkk\b|loli|incest|retard|\bkys\b|pedo|\bcum\b|\bsex/i;
+  const mcapOf = c => (c.mcap ? C.usd(c.mcap) : c.mcapSol && S.board && S.board.solUsd ? C.usd(c.mcapSol * S.board.solUsd) : c.mcapSol ? c.mcapSol.toFixed(0) + ' SOL' : '');
 
   // ---------- nav + reveal ----------
   if ('IntersectionObserver' in window) {
@@ -37,25 +46,40 @@
   function models() {
     $('#models').innerHTML = Object.keys(MODELS).map(k => `<span class="mchip ${S.open[k] ? 'on' : ''}"><i></i>${MODELS[k].label} · ${S.open[k] ? 'online' : 'offline'}</span>`).join('');
   }
-  const SPOTS = [[2, 8, -8], [70, 2, 7], [-2, 62, 6], [72, 64, -6]];
+  const SPOTS = [[0, 6, -8], [70, 0, 7], [0, 60, 6], [72, 62, -6]];
+  const heroCoin = (c, i, d) => `<div class="hc" data-m="${esc(c.mint)}" data-i="${i}" style="left:${SPOTS[i][0]}%;top:${SPOTS[i][1]}%;--r:${SPOTS[i][2]}deg;animation-delay:${d}s">${pic(c.icon, c.name, c.symbol)}<b>$${esc(symOf(c.symbol) || '?')}</b><small>${chg(c) || mcapOf(c)}</small></div>`;
+  const shownCoins = () => (S.trend || []).filter(c => c.icon);
   function fresh() {
     const rs = (S.board && S.board.runs) || [], el = $('#fresh');
-    el.innerHTML = rs.slice(0, 4).map((r, i) => `<img src="${runImg(r.id)}" alt="" style="left:${SPOTS[i][0]}%;top:${SPOTS[i][1]}%;transform:rotate(${SPOTS[i][2]}deg);animation-delay:${0.3 + i * 0.12}s">`).join('');
+    const runs = rs.slice(0, 4).map((r, i) => `<img src="${runImg(r.id)}" alt="" style="left:${SPOTS[i][0]}%;top:${SPOTS[i][1]}%;--r:${SPOTS[i][2]}deg;animation-delay:${0.3 + i * 0.12}s">`);
+    el.innerHTML = runs.join('') + shownCoins().slice(0, 4 - runs.length).map((c, k) => heroCoin(c, runs.length + k, 0.3 + (runs.length + k) * 0.12)).join('');
   }
+  let hcNext = 0, hcSpot = -1;
+  setInterval(() => {
+    if (document.hidden || C.calm) return;
+    const cards = $$('#fresh .hc'), tr = shownCoins();
+    if (!cards.length || tr.length <= cards.length) return;
+    hcSpot = (hcSpot + 1) % cards.length;
+    const on = new Set(cards.map(x => x.dataset.m)); let c = null;
+    for (let n = 0; n < tr.length; n++) { const k = tr[(cards.length + hcNext++) % tr.length]; if (!on.has(k.mint)) { c = k; break; } }
+    if (c) cards[hcSpot].outerHTML = heroCoin(c, +cards[hcSpot].dataset.i, 0);
+  }, 3800);
 
-  // ---------- the strip: fresh off the machines ----------
+  // ---------- the strip: real coins, live on pump.fun ----------
   const tape = $('#tape'); let tx = 0, tlast = 0;
+  const tapeItem = c => `<a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener" data-m="${esc(c.mint)}"${c.kind === 'new' ? ' class="nw"' : ''}>${pic(c.icon, c.name, c.symbol)}<span>${esc(c.name || c.symbol)}<small>$${esc(symOf(c.symbol) || '?')} · ${c.kind === 'new' ? '<i class="up">new</i>' : mcapOf(c) + ' ' + chg(c)}</small></span></a>`;
   function strip() {
-    const rs = (S.board && S.board.runs) || [];
-    if (!rs.length) { tape.innerHTML = '<span class="mut">Nothing yet: every picture the machines make shows up here.</span>'; tx = 0; tape.style.transform = ''; return; }
-    tape.innerHTML = rs.map(r => `<a href="/c/${r.mint}" data-m="${r.mint}"><img src="${runImg(r.id)}" alt="" loading="lazy"><span>${esc(r.name)}<small>$${esc(r.symbol)} · “${esc(String(r.input).slice(0, 26))}”</small></span></a>`).join('');
-    $$('a', tape).forEach(a => a.addEventListener('click', e => { e.preventDefault(); openCraft(a.dataset.m); }));
+    if (tape.dataset.on) return;
+    if (!S.trend || !S.trend.length) { tape.innerHTML = `<span class="mut">${S.trend === false ? 'pump.fun’s trending list didn’t answer. New coins still stream in below.' : 'Reading pump.fun…'}</span>`; return; }
+    tape.dataset.on = '1'; tx = 0; tape.style.transform = '';
+    tape.innerHTML = S.trend.slice(0, 24).map(tapeItem).join('');
   }
+  const tapeBirth = c => { if (tape.dataset.on) tape.insertAdjacentHTML('beforeend', tapeItem(c)); };
   (function roll(now) {
     const dt = tlast ? Math.min(64, now - tlast) : 16; tlast = now;
     if (!document.hidden && !C.calm && tape.children.length > 2 && tape.scrollWidth > tape.parentNode.clientWidth) {
       tx -= dt * 0.04; const f = tape.firstElementChild;
-      if (f && tx + f.offsetWidth + 12 < 0) { tx += f.offsetWidth + 12; tape.appendChild(f); }
+      if (f && tx + f.offsetWidth + 12 < 0) { tx += f.offsetWidth + 12; if (f.classList.contains('nw') && tape.querySelectorAll('a.nw').length > 10) f.remove(); else tape.appendChild(f); }
       tape.style.transform = `translate3d(${tx.toFixed(1)}px,0,0)`;
     }
     requestAnimationFrame(roll);
@@ -216,10 +240,9 @@
   // ---------- 03 live on pump.fun ----------
   const LG = $('#lgrid');
   function liveCard(c) {
-    const pic = c.icon ? img(proxied(c.icon), c.name) : `<span class="ph">${esc((c.symbol || '?').slice(0, 1))}</span>`;
-    const meta = c.kind === 'new' ? `<span>new · ${C.ago(c.at)}</span><span>${c.mcapSol ? (c.mcapSol).toFixed(0) + ' SOL' : ''}</span>`
-      : `<span>${c.mcap ? C.usd(c.mcap) : '—'}</span><span class="${c.ch >= 0 ? 'up' : 'dn'}">${c.ch == null ? '' : (c.ch >= 0 ? '+' : '') + c.ch.toFixed(1) + '% 1h'}</span>`;
-    return `<div class="lc" data-m="${esc(c.mint)}"><div class="im">${pic}</div><div class="bd"><b>${esc(c.name || c.symbol)}</b><div class="meta"><span>$${esc(symOf(c.symbol) || '?')}</span></div><div class="meta">${meta}</div>
+    const meta = c.kind === 'new' ? `<span>new · ${C.ago(c.at)}</span><span>${mcapOf(c)}</span>`
+      : `<span>${mcapOf(c) || '—'}</span><span>${c.ch == null ? '' : chg(c) + ' 1h'}</span>`;
+    return `<div class="lc" data-m="${esc(c.mint)}"><div class="im">${pic(c.icon, c.name, c.symbol)}</div><div class="bd"><b>${esc(c.name || c.symbol)}</b><div class="meta"><span>$${esc(symOf(c.symbol) || '?')}</span></div><div class="meta">${meta}</div>
       <div class="act"><button type="button" data-run="${esc(c.mint)}">Run a machine</button><a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener" aria-label="Open on pump.fun">↗</a></div></div></div>`;
   }
   function liveGrid() {
@@ -232,18 +255,21 @@
   }
   $$('#ltabs button').forEach(b => b.onclick = () => { S.lt = b.dataset.l; $$('#ltabs button').forEach(x => x.classList.toggle('on', x === b)); if (S.lt === 'trending') trending(); liveGrid(); });
   Live.on('status', up => { $('#tDot').classList.toggle('on', up); if (S.lt === 'new' && !S.births.length) liveGrid(); });
-  const pending = new Map();
+  async function logo(c, uri, n) {
+    await new Promise(z => setTimeout(z, n ? 6000 : 1500));
+    const r = await C.get('/api/logos?uri=' + encodeURIComponent(uri)).catch(() => null);
+    if (!(r && r.ok && r.image)) { if (!n) logo(c, uri, 1); return; }
+    c.icon = r.image; const h = pic(c.icon, c.name, c.symbol);
+    const card = LG.querySelector(`.lc[data-m="${CSS.escape(c.mint)}"] .im`); if (card) card.innerHTML = h;
+    const t = tape.querySelector(`a[data-m="${CSS.escape(c.mint)}"]`); if (t && t.firstElementChild) t.firstElementChild.outerHTML = h;
+  }
   Live.on('birth', b => {
+    if (BAD.test((b.name || '') + ' ' + (b.symbol || ''))) return;
+    S.nb++; const nl = $('#nLine'); if (nl) nl.textContent = `${S.nb.toLocaleString('en-US')} new coin${S.nb === 1 ? ' was' : 's were'} born on pump.fun since you opened this page.`;
     const c = { kind: 'new', mint: b.mint, name: b.name, symbol: b.symbol, at: b.at, mcapSol: b.mcap, icon: null };
     S.births.unshift(c); S.births = S.births.slice(0, 30);
-    if (b.uri && /^https:\/\//.test(b.uri)) {
-      pending.set(b.mint, b.uri);
-      setTimeout(async () => {
-        const u = pending.get(b.mint); pending.delete(b.mint); if (!u) return;
-        const r = await C.get('/api/logos?uri=' + encodeURIComponent(u)).catch(() => null);
-        if (r && r.ok && r.image) { c.icon = r.image; if (S.lt === 'new') { const card = LG.querySelector(`.lc[data-m="${CSS.escape(b.mint)}"] .im`); if (card) card.innerHTML = img(proxied(r.image), c.name); } }
-      }, 1200);
-    }
+    if (b.uri && /^https:\/\//i.test(b.uri)) logo(c, b.uri, 0);
+    tapeBirth(c);
     if (S.lt === 'new') { if (!throttle) { throttle = setTimeout(() => { throttle = 0; liveGrid(); }, 900); } }
   });
   let throttle = 0;
@@ -252,13 +278,15 @@
     try {
       const r = await fetch('https://lite-api.jup.ag/tokens/v2/toptrending/1h?limit=80').then(x => x.json());
       const arr = Array.isArray(r) ? r : (r && (r.tokens || r.data)) || [];
-      S.trend = arr.filter(t => t && t.id && (t.launchpad === 'pump.fun' || /pump$/.test(t.id))).slice(0, 24).map(t => ({
-        kind: 'trending', mint: t.id, name: String(t.name || '').slice(0, 40), symbol: String(t.symbol || '').slice(0, 14), icon: typeof t.icon === 'string' && /^https:\/\//.test(t.icon) ? t.icon : null,
+      S.trend = arr.filter(t => t && t.id && (t.launchpad === 'pump.fun' || /pump$/.test(t.id)) && !BAD.test(String(t.name || '') + ' ' + String(t.symbol || ''))).slice(0, 30).map(t => ({
+        kind: 'trending', mint: t.id, name: String(t.name || '').slice(0, 40), symbol: String(t.symbol || '').slice(0, 14), icon: httpsOf(t.icon),
         mcap: Number(t.mcap) || Number(t.fdv) || null, ch: t.stats1h && isFinite(+t.stats1h.priceChange) ? +t.stats1h.priceChange : null }));
       S.trendAt = Date.now();
-    } catch { S.trend = false; }
+    } catch { if (!S.trend) S.trend = false; }
     if (S.lt === 'trending') liveGrid();
+    strip(); if (!$('#fresh .hc') && !$('#fresh img')) fresh();
   }
+  setInterval(() => { if (!document.hidden) trending(); }, 61000);
   // run one of our machines for a live pump.fun coin
   function pickFor(c) {
     const live = coins().filter(k => !k.status || k.status === 'live');
@@ -335,7 +363,7 @@
     if (!S.open[S.model] && S.open.krea) S.model = 'krea';
     models(); fresh(); strip(); grid(); mdl(); splitBox(); pv(); caBox(); me(); vtop();
     if (first) {
-      first = false; ladder(); liveGrid();
+      first = false; ladder(); liveGrid(); trending();
       const mm = location.pathname.match(/^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})/);
       if (mm) openCraft(mm[1]);
     }
