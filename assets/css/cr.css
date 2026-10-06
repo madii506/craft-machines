@@ -113,7 +113,7 @@ img{display:block;max-width:100%}
 .bphead{grid-column:1/-1;display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;margin:-8px 0 0}
 .bphead h3{margin:0;font:22px/1.2 PX}
 .bphead p{margin:0;color:var(--gray)}
-.bp{border:2.5px solid var(--ink);border-radius:20px;background:#fff;box-shadow:var(--sh);padding:18px;display:grid;gap:12px;align-content:start;animation:pop .5s var(--ease) backwards;animation-delay:calc(var(--i,0)*70ms);transition:transform .25s var(--ease),box-shadow .25s}
+.bp{border:2.5px solid var(--ink);border-radius:20px;background:#fff;box-shadow:var(--sh);padding:18px;display:grid;grid-template-rows:auto 1fr auto auto;gap:12px;animation:pop .5s var(--ease) backwards;animation-delay:calc(var(--i,0)*70ms);transition:transform .25s var(--ease),box-shadow .25s}
 .bpt{display:flex;gap:13px;align-items:center}
 .bpt svg{width:50px;height:50px;flex:none;fill:var(--mint);stroke:var(--ink);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round;transition:transform .35s var(--ease)}
 .bp:hover .bpt svg{transform:rotate(-6deg) scale(1.06)}
